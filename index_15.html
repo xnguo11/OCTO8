@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    #app { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); width: 100%; max-width: 820px; height: 680px; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Setup */
+    #setup { display: flex; flex-direction: column; gap: 14px; padding: 2.5rem; max-width: 360px; margin: auto; width: 100%; }
+    #setup h2 { font-size: 22px; font-weight: 600; color: #111; }
+    #setup p { font-size: 14px; color: #666; line-height: 1.5; }
+    .avatar-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .avatar-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #e0e0e0; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; }
+    .avatar-btn.sel { border-color: #378ADD; background: #e8f2fb; }
+    .field-label { font-size: 13px; color: #888; margin-bottom: 6px; }
+    input.txt { padding: 10px 13px; border-radius: 10px; border: 1px solid #ddd; font-size: 14px; background: #fafafa; color: #111; outline: none; width: 100%; }
+    input.txt:focus { border-color: #378ADD; }
+    .primary-btn { padding: 11px 16px; border-radius: 10px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; }
+    .primary-btn:hover { opacity: 0.88; }
+    #err { font-size: 13px; color: #e24b4a; min-height: 18px; }
+
+    /* Main */
+    #main { display: none; flex-direction: row; height: 100%; overflow: hidden; }
+    #sidebar { width: 160px; flex-shrink: 0; border-right: 1px solid #eee; display: flex; flex-direction: column; background: #fafafa; }
+    #sidebar-search-row { padding: 8px 10px 4px; }
+    #room-search { width: 100%; padding: 6px 9px; border-radius: 8px; border: 1px solid #ddd; font-size: 12px; background: #fff; color: #111; outline: none; }
+    #sidebar-top { padding: 4px 10px 8px; flex: 1; overflow-y: auto; }
+    .sec-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; font-weight: 600; }
+    .room-btn { display: flex; align-items: center; gap: 4px; width: 100%; text-align: left; padding: 7px 9px; border-radius: 8px; border: none; background: none; cursor: pointer; font-size: 13px; color: #555; margin-bottom: 2px; }
+    .room-btn.active { background: #e8f2fb; color: #185FA5; font-weight: 600; }
+    .room-btn:hover { background: #f0f0f0; }
+    #new-room-row { padding: 10px; border-top: 1px solid #eee; }
+    #new-room-input { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid #ddd; font-size: 12px; background: #fff; color: #111; outline: none; }
+
+    /* Chat */
+    #chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #admin-bar { display: none; background: linear-gradient(90deg,#1a1a2e,#16213e); color: #fff; padding: 7px 14px; font-size: 13px; font-weight: 600; align-items: center; gap: 10px; flex-shrink: 0; }
+    #announce-btn { margin-left: auto; padding: 5px 12px; border-radius: 8px; background: #FFD700; color: #111; border: none; cursor: pointer; font-size: 12px; font-weight: 700; }
+    #chat-hdr { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #eee; flex-shrink: 0; background: #fff; flex-wrap: wrap; }
+    #chat-hdr h3 { font-size: 15px; font-weight: 600; color: #111; }
+    #room-tag { font-size: 11px; color: #999; }
+    #onl { font-size: 12px; color: #999; margin-left: auto; display: flex; align-items: center; gap: 5px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #1D9E75; display: inline-block; }
+    #call-btn { padding: 5px 12px; border-radius: 8px; background: #1D9E75; color: #fff; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+    #call-btn.active { background: #e24b4a; }
+    #manage-btn { font-size: 12px; color: #378ADD; background: none; border: 1px solid #c8dff5; border-radius: 8px; cursor: pointer; padding: 4px 10px; }
+    #my-id-pill { font-size: 11px; background: #f0f7ff; color: #185FA5; border-radius: 6px; padding: 3px 8px; font-family: monospace; cursor: pointer; border: 1px solid #c8dff5; white-space: nowrap; }
+
+    /* Call panel */
+    #call-panel { display: none; flex-shrink: 0; background: #0f0f1a; border-bottom: 1px solid #222; position: relative; }
+    #call-panel iframe { width: 100%; height: 240px; border: none; display: block; }
+    #call-close { position: absolute; top: 8px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; z-index: 5; }
+    #call-status-bar { background: #0f0f1a; color: #1D9E75; font-size: 12px; padding: 5px 14px; display: none; align-items: center; gap: 8px; flex-shrink: 0; }
+    #call-status-bar .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #e24b4a; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+    /* Messages */
+    #msgs { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .msg { display: flex; gap: 8px; align-items: flex-end; max-width: 82%; }
+    .mine { align-self: flex-end; flex-direction: row-reverse; }
+    .other { align-self: flex-start; }
+    .bubble { padding: 9px 13px; border-radius: 18px; font-size: 14px; line-height: 1.5; word-break: break-word; }
+    .other .bubble { background: #f0f0f0; color: #111; border-bottom-left-radius: 4px; }
+    .mine .bubble { background: #378ADD; color: #fff; border-bottom-right-radius: 4px; }
+    .bubble img { max-width: 200px; max-height: 160px; border-radius: 10px; display: block; cursor: pointer; }
+    .av { font-size: 22px; flex-shrink: 0; }
+    .mw { display: flex; flex-direction: column; }
+    .mine .mw { align-items: flex-end; }
+    .meta { font-size: 11px; color: #aaa; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+    .del-msg-btn { font-size: 10px; color: #e24b4a; background: none; border: none; cursor: pointer; opacity: 0; padding: 0; }
+    .msg:hover .del-msg-btn { opacity: 1; }
+    .sys { text-align: center; font-size: 12px; color: #bbb; padding: 4px 0; }
+    .announcement { text-align: center; padding: 10px 16px; margin: 4px 0; background: linear-gradient(90deg,#1a1a2e,#16213e); color: #FFD700; border-radius: 10px; font-size: 13px; font-weight: 600; }
+
+    /* Input area */
+    #inp-area { padding: 8px 14px 10px; border-top: 1px solid #eee; flex-shrink: 0; }
+    #inp-row { display: flex; gap: 6px; align-items: center; }
+    #msg-input { flex: 1; padding: 9px 14px; border-radius: 22px; border: 1px solid #ddd; font-size: 14px; background: #fafafa; color: #111; outline: none; }
+    #msg-input:focus { border-color: #378ADD; }
+    #snd { padding: 9px 16px; border-radius: 22px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .tool-btn { padding: 8px 11px; border-radius: 22px; border: 1px solid #ddd; background: #fafafa; color: #555; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .tool-btn:hover { background: #f0f0f0; }
+    .tool-btn.active { background: #e8f2fb; border-color: #378ADD; color: #185FA5; }
+
+    /* Media panel (GIF + image upload tabs) */
+    #media-panel { display: none; border: 1px solid #eee; border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+    .panel-tabs { display: flex; border-bottom: 1px solid #eee; background: #fafafa; }
+    .panel-tab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; background: none; border: none; cursor: pointer; color: #888; }
+    .panel-tab.active { color: #378ADD; border-bottom: 2px solid #378ADD; background: #fff; }
+    #gif-pane, #img-pane { padding: 10px; }
+    .gif-cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .cat-btn { padding: 4px 11px; border-radius: 22px; border: 1px solid #ddd; background: #fafafa; color: #555; cursor: pointer; font-size: 12px; }
+    .cat-btn.active { background: #378ADD; color: #fff; border-color: #378ADD; }
+    #gif-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; max-height: 120px; overflow-y: auto; }
+    .gif-item { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 7px; cursor: pointer; border: 2px solid transparent; background: #eee; }
+    .gif-item:hover { border-color: #378ADD; }
+
+    /* Image upload pane */
+    #img-pane { display: flex; flex-direction: column; gap: 10px; }
+    #drop-zone { border: 2px dashed #ddd; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+    #drop-zone:hover, #drop-zone.drag-over { border-color: #378ADD; background: #f0f7ff; }
+    #drop-zone p { font-size: 13px; color: #888; margin-top: 6px; }
+    #drop-zone .upload-icon { font-size: 28px; }
+    #file-input { display: none; }
+    #img-preview-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .preview-thumb { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; }
+    .preview-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .preview-thumb .remove-thumb { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.55); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    #upload-progress { font-size: 12px; color: #888; display: none; }
+    #send-images-btn { padding: 8px 16px; border-radius: 10px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 13px; font-weight: 600; display: none; }
+    #send-images-btn:hover { opacity: 0.88; }
+    #upload-err { font-size: 12px; color: #e24b4a; }
+
+    /* Image lightbox */
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; cursor: pointer; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+
+    /* Locked */
+    #locked-msg { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; color: #888; font-size: 14px; text-align: center; padding: 2rem; }
+    #locked-msg .lock-big { font-size: 40px; }
+    #req-btn { padding: 9px 22px; border-radius: 10px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    #req-btn:disabled { opacity: 0.5; cursor: default; }
+
+    #wrapper { position: relative; flex: 1; display: flex; overflow: hidden; }
+
+    /* Modals */
+    .modal-bg { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 10; align-items: center; justify-content: center; }
+    .modal-box { background: #fff; border-radius: 14px; padding: 1.4rem; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    #modal { width: 310px; max-height: 460px; overflow-y: auto; }
+    #modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: #111; }
+    #modal .modal-sub { font-size: 12px; color: #aaa; margin-bottom: 14px; }
+    .modal-close { margin-top: 14px; width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; background: none; color: #666; cursor: pointer; font-size: 13px; }
+    .modal-section-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin: 14px 0 8px; }
+    #invite-search { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 13px; background: #fafafa; color: #111; outline: none; margin-bottom: 8px; }
+    #online-users-list { display: flex; flex-direction: column; gap: 2px; max-height: 140px; overflow-y: auto; }
+    .online-user-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 8px; }
+    .online-user-row:hover { background: #f8f8f8; }
+    .online-user-name { flex: 1; font-size: 13px; color: #111; font-weight: 500; }
+    .invite-btn { padding: 4px 12px; border-radius: 8px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .invite-btn.invited { background: #1D9E75; cursor: default; }
+    .invite-btn.already { background: #eee; color: #aaa; cursor: default; }
+    .req-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .req-item:last-child { border-bottom: none; }
+    .req-name { flex: 1; font-size: 13px; color: #111; }
+    .approve-btn { padding: 4px 10px; border-radius: 8px; background: #1D9E75; color: #fff; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .deny-btn { padding: 4px 10px; border-radius: 8px; background: #e24b4a; color: #fff; border: none; cursor: pointer; font-size: 12px; font-weight: 600; margin-left: 4px; }
+    .member-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+    .kick-btn { padding: 3px 10px; border-radius: 8px; border: 1px solid #ddd; background: none; color: #888; cursor: pointer; font-size: 11px; }
+    #announce-modal { width: 300px; }
+    #announce-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
+    #announce-text { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; background: #fafafa; color: #111; outline: none; resize: none; height: 80px; margin-bottom: 12px; }
+    #announce-send { width: 100%; padding: 9px; border-radius: 8px; background: #FFD700; color: #111; border: none; cursor: pointer; font-size: 14px; font-weight: 700; }
+    #announce-cancel { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; background: none; color: #666; cursor: pointer; font-size: 13px; margin-top: 8px; }
+    #new-room-modal { width: 270px; }
+    #new-room-modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 14px; color: #111; }
+    #nr-name { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; background: #fafafa; color: #111; outline: none; margin-bottom: 12px; }
+    .toggle-row { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+    .toggle-row label { font-size: 13px; color: #555; cursor: pointer; }
+    #create-room-btn { width: 100%; padding: 9px; border-radius: 8px; background: #378ADD; color: #fff; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+    #cancel-room-btn { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; background: none; color: #666; cursor: pointer; font-size: 13px; margin-top: 8px; }
+
+    @media (max-width:600px) { #app { height:100vh; border-radius:0; } #sidebar { width:110px; } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Setup -->
+  <div id="setup">
+    <h2>Join the chat</h2>
+    <p>Pick a name and avatar. Send messages, images, and GIFs.</p>
+    <input class="txt" id="name-input" placeholder="Your name..." maxlength="20" />
+    <div>
+      <div class="field-label">Pick your avatar</div>
+      <div class="avatar-row" id="av-row"></div>
+    </div>
+    <div>
+      <div class="field-label">Admin passcode <span style="color:#ddd;">(optional)</span></div>
+      <input class="txt" type="password" id="passcode-input" placeholder="Enter if you have one..." />
+    </div>
+    <button class="primary-btn" id="join-btn">Join chat</button>
+    <div id="err"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="sidebar">
+      <div id="sidebar-search-row"><input id="room-search" placeholder="Search rooms..." /></div>
+      <div id="sidebar-top">
+        <div class="sec-label">Rooms</div>
+        <div id="room-list"></div>
+      </div>
+      <div id="new-room-row"><input id="new-room-input" placeholder="+ new room" maxlength="20" /></div>
+    </div>
+
+    <div id="wrapper">
+      <div id="chat-area">
+        <div id="admin-bar"><span>👑 ADMIN MODE</span><button id="announce-btn">📣 Announce</button></div>
+        <div id="chat-hdr">
+          <h3 id="room-title">#general</h3>
+          <span id="room-tag"></span>
+          <div id="onl"><span class="dot"></span><span id="onl-n">1</span> online</div>
+          <button id="call-btn">📞 Call</button>
+          <button id="my-id-pill">ID: <span id="my-id-display"></span></button>
+          <button id="manage-btn" style="display:none;">Manage</button>
+        </div>
+
+        <div id="call-panel">
+          <button id="call-close">✕ Leave call</button>
+          <iframe id="jitsi-frame" allow="camera; microphone; fullscreen; display-capture" allowfullscreen></iframe>
+        </div>
+        <div id="call-status-bar">
+          <span class="live-dot"></span>
+          <span id="call-status-text">Call active</span>
+          <button onclick="toggleCallPanel()" style="margin-left:auto;background:none;border:none;color:#aaa;cursor:pointer;font-size:12px;">show/hide</button>
+        </div>
+
+        <div id="msgs"></div>
+
+        <div id="inp-area">
+          <div id="media-panel">
+            <div class="panel-tabs">
+              <button class="panel-tab active" id="tab-gif" onclick="switchTab('gif')">GIFs</button>
+              <button class="panel-tab" id="tab-img" onclick="switchTab('img')">Upload image</button>
+            </div>
+            <div id="gif-pane">
+              <div class="gif-cats" id="gif-cats"></div>
+              <div id="gif-grid"></div>
+            </div>
+            <div id="img-pane" style="display:none;">
+              <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <div class="upload-icon">🖼️</div>
+                <p>Click to choose or drag &amp; drop images</p>
+                <p style="font-size:11px;color:#bbb;margin-top:4px;">JPG, PNG, GIF, WebP — max 32MB each</p>
+              </div>
+              <input type="file" id="file-input" accept="image/*" multiple />
+              <div id="img-preview-row"></div>
+              <div id="upload-progress"></div>
+              <div id="upload-err"></div>
+              <button id="send-images-btn">Send images</button>
+            </div>
+          </div>
+          <div id="inp-row">
+            <button class="tool-btn" id="gif-toggle-btn" onclick="toggleMedia('gif')">GIF</button>
+            <button class="tool-btn" id="img-toggle-btn" onclick="toggleMedia('img')">📷</button>
+            <input id="msg-input" placeholder="Message..." maxlength="500" autocomplete="off" />
+            <button id="snd">Send</button>
+          </div>
+        </div>
+
+        <div id="locked-msg">
+          <div class="lock-big">🔒</div>
+          <div style="font-weight:600;color:#555;">This room is invite-only</div>
+          <div style="font-size:13px;color:#aaa;max-width:260px;">Share your User ID with the room owner to get access.</div>
+          <div style="font-size:13px;background:#f0f7ff;border:1px solid #c8dff5;border-radius:8px;padding:8px 14px;color:#185FA5;font-family:monospace;" id="locked-id-display"></div>
+          <button id="req-btn">Request to join</button>
+        </div>
+      </div>
+
+      <!-- Manage modal -->
+      <div class="modal-bg" id="modal-bg">
+        <div class="modal-box" id="modal">
+          <h3 id="modal-title">Manage room</h3>
+          <p class="modal-sub">Invite online users directly or approve pending requests.</p>
+          <div class="modal-section-label">Invite online users</div>
+          <input id="invite-search" placeholder="Filter by name..." />
+          <div id="online-users-list"></div>
+          <div id="modal-body"></div>
+          <button class="modal-close" id="modal-close">Close</button>
+        </div>
+      </div>
+
+      <!-- Announce modal -->
+      <div class="modal-bg" id="announce-modal-bg">
+        <div class="modal-box" id="announce-modal">
+          <h3>Send announcement</h3>
+          <textarea id="announce-text" placeholder="Type your announcement..."></textarea>
+          <button id="announce-send">📣 Send to #<span id="announce-room-label"></span></button>
+          <button id="announce-cancel">Cancel</button>
+        </div>
+      </div>
+
+      <!-- New room modal -->
+      <div class="modal-bg" id="new-room-modal-bg">
+        <div class="modal-box" id="new-room-modal">
+          <h3>Create a room</h3>
+          <input type="text" id="nr-name" placeholder="Room name..." maxlength="20" />
+          <div class="toggle-row">
+            <input type="checkbox" id="nr-private" />
+            <label for="nr-private">Invite-only (you approve members)</label>
+          </div>
+          <button id="create-room-btn">Create room</button>
+          <button id="cancel-room-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="document.getElementById('lightbox').style.display='none'">
+  <img id="lightbox-img" src="" alt="full size" />
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-database-compat.js"></script>
+<script>
+// =============================================
+// CONFIG — paste your free ImgBB API key here:
+// Get one free at https://api.imgbb.com
+// =============================================
+const IMGBB_KEY = 'YOUR_IMGBB_API_KEY';
+// =============================================
+
+const AVATARS = ['🐻','🦊','🐧','🐸','🦋','🐬','🦁','🐙','🦄','🐺','🦝','🐨'];
+const DEFAULT_ROOMS = [{id:'general',private:false},{id:'random',private:false},{id:'memes',private:false}];
+const SECRET_PASSCODE = 'youwillneverfindthis';
+const JITSI_DOMAIN = 'meet.jit.si';
+const APP_PREFIX = 'chatapp-room-';
+const REAL_GIFS = {
+  happy:['https://media.giphy.com/media/ZqlvCTNHpqrio/giphy.gif','https://media.giphy.com/media/11sBLVxNs7v6WA/giphy.gif','https://media.giphy.com/media/xT9IgG50Lg7rusyg4M/giphy.gif','https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif'],
+  lol:['https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif','https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif','https://media.giphy.com/media/l3q2zbskZp2j8wniE/giphy.gif','https://media.giphy.com/media/3oEjHGr1Fhz0kyv8Eg/giphy.gif'],
+  wow:['https://media.giphy.com/media/5VKbvrjxpVJCM/giphy.gif','https://media.giphy.com/media/ToMjGpjpXMFPshSYGLm/giphy.gif','https://media.giphy.com/media/l0HlN5Y28D9MzzcRy/giphy.gif','https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif'],
+  hype:['https://media.giphy.com/media/l0MYEqEzwMWFCg8rm/giphy.gif','https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif','https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif','https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif'],
+  no:['https://media.giphy.com/media/3oEjHFOscgNwdSRRDy/giphy.gif','https://media.giphy.com/media/l1J9FiGxR61OcF2tO/giphy.gif','https://media.giphy.com/media/kXWvaxtCGMlKLHPoTZ/giphy.gif','https://media.giphy.com/media/1zSz5MVw4zKg0/giphy.gif'],
+  yes:['https://media.giphy.com/media/3ohzdIuqJoo8QdKlnW/giphy.gif','https://media.giphy.com/media/GS1VR900wmhJ6/giphy.gif','https://media.giphy.com/media/l3V0dy1zzyjbYTQQM/giphy.gif','https://media.giphy.com/media/xNBcChLQt7s9a/giphy.gif'],
+  wave:['https://media.giphy.com/media/ASd0Ukj0y3qMM/giphy.gif','https://media.giphy.com/media/l2SpZkQ0XT1XtKus0/giphy.gif','https://media.giphy.com/media/ITRemFlr5tS39A0GC8/giphy.gif','https://media.giphy.com/media/3oEdv6sy3tbQMb2vXq/giphy.gif'],
+  sad:['https://media.giphy.com/media/OPU6wzx8JrHna/giphy.gif','https://media.giphy.com/media/d2lcHJTG5Tscg/giphy.gif','https://media.giphy.com/media/ISOckXUybVfQ4/giphy.gif','https://media.giphy.com/media/ROF8OQvDmxytW/giphy.gif'],
+};
+
+let myAvatar=AVATARS[0],myName='',myId=Math.random().toString(36).slice(2,8);
+let isAdmin=false,joined=false,db=null;
+let currentRoom='general',roomListeners={},gifOpen=false,activeCategory='happy';
+let roomMeta={},onlineUsers={};
+let inCall=false,callPanelVisible=true;
+let pendingFiles=[], mediaPanelOpen=false, activeTab='gif';
+
+// Avatar picker
+const avRow=document.getElementById('av-row');
+AVATARS.forEach((a,i)=>{
+  const btn=document.createElement('button');
+  btn.className='avatar-btn'+(i===0?' sel':'');
+  btn.textContent=a;
+  btn.onclick=()=>{document.querySelectorAll('.avatar-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');myAvatar=a;};
+  avRow.appendChild(btn);
+});
+
+document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')tryJoin();});
+document.getElementById('join-btn').onclick=tryJoin;
+
+function tryJoin(){
+  const name=document.getElementById('name-input').value.trim();
+  if(!name){document.getElementById('err').textContent='Please enter a name.';return;}
+  myName=name;
+  const passcode=document.getElementById('passcode-input').value.trim();
+  isAdmin=(passcode===SECRET_PASSCODE);
+  document.getElementById('err').textContent='';
+  try{
+    const cfg={apiKey:"AIzaSyDgibTB5yyba2j4vZRDnZaCpLevt9s09gg",authDomain:"chat-8b52c.firebaseapp.com",databaseURL:"https://chat-8b52c-default-rtdb.firebaseio.com",projectId:"chat-8b52c",storageBucket:"chat-8b52c.firebasestorage.app",messagingSenderId:"1040441285132",appId:"1:1040441285132:web:0b9c0bbf225e2f9d89ec29"};
+    if(!firebase.apps.length)firebase.initializeApp(cfg);
+    db=firebase.database();
+    const onlRef=db.ref('online/'+myId);
+    onlRef.set({name:myName,avatar:myAvatar,id:myId,admin:isAdmin});
+    onlRef.onDisconnect().remove();
+    db.ref('online').on('value',snap=>{onlineUsers=snap.val()||{};document.getElementById('onl-n').textContent=Object.keys(onlineUsers).length;});
+    DEFAULT_ROOMS.forEach(r=>{db.ref('roomMeta/'+r.id).transaction(cur=>{if(!cur)return{private:r.private,owner:null,members:{}};return cur;});});
+    db.ref('roomMeta').on('value',snap=>{roomMeta=snap.val()||{};DEFAULT_ROOMS.forEach(r=>{if(!roomMeta[r.id])roomMeta[r.id]={private:false,owner:null,members:{}};});renderRooms();updateRoomHeader();});
+    db.ref('invites/'+myId).on('child_added',snap=>{const invite=snap.val();if(!invite)return;db.ref('roomMeta/'+invite.roomId+'/members/'+myId).set(true);db.ref('invites/'+myId+'/'+snap.key).remove();if(currentRoom===invite.roomId)switchRoom(invite.roomId);});
+    if(isAdmin)document.getElementById('admin-bar').style.display='flex';
+    document.getElementById('setup').style.display='none';
+    document.getElementById('main').style.display='flex';
+    document.getElementById('my-id-display').textContent=myId;
+    document.getElementById('locked-id-display').textContent='Your ID: '+myId;
+    joined=true;
+    buildGifPanel();
+    switchRoom('general');
+  }catch(e){document.getElementById('err').textContent='Error: '+e.message;}
+}
+
+document.getElementById('my-id-pill').onclick=()=>{
+  navigator.clipboard.writeText(myId).then(()=>{const p=document.getElementById('my-id-pill');const prev=p.innerHTML;p.textContent='Copied!';setTimeout(()=>{p.innerHTML=prev;},1500);}).catch(()=>{});
+};
+
+document.getElementById('room-search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.room-btn').forEach(btn=>{btn.style.display=(!q||(btn.dataset.room||'').includes(q))?'flex':'none';});
+});
+
+function amMember(roomId){if(isAdmin)return true;const meta=roomMeta[roomId]||{};if(!meta.private)return true;if(meta.owner===myId)return true;return!!(meta.members&&meta.members[myId]);}
+function amOwner(roomId){return isAdmin||(roomMeta[roomId]||{}).owner===myId;}
+
+function renderRooms(){
+  const list=document.getElementById('room-list');const q=document.getElementById('room-search').value.trim().toLowerCase();list.innerHTML='';
+  Object.keys(roomMeta).forEach(id=>{
+    const meta=roomMeta[id]||{};const btn=document.createElement('button');
+    btn.className='room-btn'+(id===currentRoom?' active':'');btn.dataset.room=id;
+    btn.innerHTML=(meta.private?'<span style="font-size:11px;opacity:0.6;">🔒</span>':'')+'# '+id;
+    btn.style.display=(!q||id.includes(q))?'flex':'none';
+    btn.onclick=()=>switchRoom(id);list.appendChild(btn);
+  });
+}
+
+function updateRoomHeader(){
+  if(!roomMeta[currentRoom])return;
+  const meta=roomMeta[currentRoom]||{};
+  document.getElementById('room-title').textContent='#'+currentRoom;
+  document.getElementById('room-tag').textContent=meta.private?'🔒 invite-only':'';
+  document.getElementById('manage-btn').style.display=amOwner(currentRoom)?'block':'none';
+  document.getElementById('announce-room-label').textContent=currentRoom;
+  const isLocked=meta.private&&!amMember(currentRoom);
+  document.getElementById('msgs').style.display=isLocked?'none':'flex';
+  document.getElementById('inp-area').style.display=isLocked?'none':'block';
+  document.getElementById('call-btn').style.display=isLocked?'none':'flex';
+  document.getElementById('locked-msg').style.display=isLocked?'flex':'none';
+  if(isLocked)checkPendingRequest(currentRoom);
+  updateCallBtn();
+}
+
+// ---- CALL ----
+function updateCallBtn(){const btn=document.getElementById('call-btn');if(inCall){btn.textContent='📞 Leave call';btn.classList.add('active');}else{btn.textContent='📞 Call';btn.classList.remove('active');}}
+document.getElementById('call-btn').onclick=()=>{if(inCall)endCall();else startCall();};
+document.getElementById('call-close').onclick=endCall;
+function startCall(){
+  inCall=true;callPanelVisible=true;
+  const rn=APP_PREFIX+currentRoom;const dn=encodeURIComponent(myName+(isAdmin?' 👑':''));
+  document.getElementById('jitsi-frame').src=`https://${JITSI_DOMAIN}/${rn}#userInfo.displayName="${dn}"&config.prejoinPageEnabled=false&config.startWithVideoMuted=true&interfaceConfig.SHOW_JITSI_WATERMARK=false`;
+  document.getElementById('call-panel').style.display='block';
+  document.getElementById('call-status-bar').style.display='flex';
+  document.getElementById('call-status-text').textContent='Call active in #'+currentRoom;
+  updateCallBtn();
+  db.ref('chats/'+currentRoom).push({system:true,text:myName+' started a call — click 📞 to join!',ts:Date.now()});
+}
+function endCall(){inCall=false;document.getElementById('jitsi-frame').src='';document.getElementById('call-panel').style.display='none';document.getElementById('call-status-bar').style.display='none';updateCallBtn();}
+function toggleCallPanel(){callPanelVisible=!callPanelVisible;document.getElementById('call-panel').style.display=(inCall&&callPanelVisible)?'block':'none';}
+
+// ---- ROOMS ----
+function checkPendingRequest(roomId){if(!db)return;db.ref('roomRequests/'+roomId+'/'+myId).once('value',snap=>{const btn=document.getElementById('req-btn');if(snap.val()){btn.textContent='Request pending...';btn.disabled=true;}else{btn.textContent='Request to join';btn.disabled=false;}});}
+
+function switchRoom(room){
+  if(currentRoom&&roomListeners[currentRoom]){db.ref('chats/'+currentRoom).off('child_added',roomListeners[currentRoom]);delete roomListeners[currentRoom];}
+  if(inCall)endCall();
+  currentRoom=room;document.getElementById('msgs').innerHTML='';
+  document.querySelectorAll('.room-btn').forEach(b=>b.classList.toggle('active',b.dataset.room===room));
+  updateRoomHeader();
+  if(amMember(room)){const listener=db.ref('chats/'+room).limitToLast(80).on('child_added',snap=>renderMsg(snap.val(),snap.key));roomListeners[room]=listener;}
+}
+
+document.getElementById('req-btn').onclick=()=>{
+  db.ref('roomRequests/'+currentRoom+'/'+myId).set({name:myName,avatar:myAvatar,ts:Date.now()});
+  const btn=document.getElementById('req-btn');btn.textContent='Request pending...';btn.disabled=true;
+  db.ref('roomRequests/'+currentRoom+'/'+myId).on('value',snap=>{if(!snap.val()&&amMember(currentRoom))switchRoom(currentRoom);});
+};
+
+document.getElementById('manage-btn').onclick=()=>openManageModal(currentRoom);
+
+function openManageModal(roomId){document.getElementById('modal-title').textContent='Manage #'+roomId;document.getElementById('invite-search').value='';renderOnlineUsersList(roomId,'');renderRequestsAndMembers(roomId);document.getElementById('modal-bg').style.display='flex';}
+document.getElementById('invite-search').addEventListener('input',e=>{renderOnlineUsersList(currentRoom,e.target.value.trim().toLowerCase());});
+
+function renderOnlineUsersList(roomId,filter){
+  const list=document.getElementById('online-users-list');list.innerHTML='';
+  const meta=roomMeta[roomId]||{};const others=Object.entries(onlineUsers).filter(([uid])=>uid!==myId);
+  if(!others.length){list.innerHTML='<div style="font-size:13px;color:#bbb;padding:6px 0;">No other users online.</div>';return;}
+  let shown=0;
+  others.forEach(([uid,user])=>{
+    if(filter&&!user.name.toLowerCase().includes(filter))return;shown++;
+    const isMember=!!(meta.members&&meta.members[uid])||meta.owner===uid;
+    const row=document.createElement('div');row.className='online-user-row';
+    const avEl=document.createElement('span');avEl.style.fontSize='18px';avEl.textContent=user.avatar||'🐻';
+    const nameEl=document.createElement('span');nameEl.className='online-user-name';nameEl.textContent=user.name+(user.admin?' 👑':'');
+    const invBtn=document.createElement('button');invBtn.className='invite-btn'+(isMember?' already':'');invBtn.textContent=isMember?'Member':'Invite';invBtn.disabled=isMember;
+    if(!isMember){invBtn.onclick=()=>{db.ref('roomMeta/'+roomId+'/members/'+uid).set(true);db.ref('invites/'+uid+'/'+roomId).set({roomId,from:myName,ts:Date.now()});db.ref('chats/'+roomId).push({system:true,text:user.name+' was invited to join',ts:Date.now()});invBtn.textContent='Invited';invBtn.className='invite-btn invited';invBtn.disabled=true;renderRequestsAndMembers(roomId);};}
+    row.appendChild(avEl);row.appendChild(nameEl);row.appendChild(invBtn);list.appendChild(row);
+  });
+  if(!shown)list.innerHTML='<div style="font-size:13px;color:#bbb;padding:6px 0;">No matching users online.</div>';
+}
+
+function renderRequestsAndMembers(roomId){
+  const body=document.getElementById('modal-body');body.innerHTML='';const meta=roomMeta[roomId]||{};
+  db.ref('roomRequests/'+roomId).once('value',snap=>{
+    const reqs=snap.val()||{};const reqIds=Object.keys(reqs);
+    const rl=document.createElement('p');rl.className='modal-section-label';rl.textContent=reqIds.length?'Pending requests':'No pending requests';body.appendChild(rl);
+    reqIds.forEach(uid=>{
+      const r=reqs[uid];const row=document.createElement('div');row.className='req-item';
+      row.innerHTML=`<span style="font-size:18px;">${r.avatar||'🐻'}</span><span class="req-name">${r.name}</span>`;
+      const ab=document.createElement('button');ab.className='approve-btn';ab.textContent='Approve';
+      ab.onclick=()=>{db.ref('roomMeta/'+roomId+'/members/'+uid).set(true);db.ref('roomRequests/'+roomId+'/'+uid).remove();db.ref('chats/'+roomId).push({system:true,text:r.name+' was approved',ts:Date.now()});renderRequestsAndMembers(roomId);renderOnlineUsersList(roomId,'');};
+      const db2=document.createElement('button');db2.className='deny-btn';db2.textContent='Deny';
+      db2.onclick=()=>{db.ref('roomRequests/'+roomId+'/'+uid).remove();renderRequestsAndMembers(roomId);};
+      row.appendChild(ab);row.appendChild(db2);body.appendChild(row);
+    });
+    const members=meta.members||{};const memberIds=Object.keys(members);
+    if(memberIds.length){
+      const ml=document.createElement('p');ml.className='modal-section-label';ml.textContent='Members';body.appendChild(ml);
+      memberIds.forEach(uid=>{
+        const user=onlineUsers[uid];const row=document.createElement('div');row.className='member-item';
+        row.innerHTML=`<span style="font-size:18px;">${user?user.avatar:'🐻'}</span><span style="font-size:13px;flex:1;color:#111;">${user?user.name:'User '+uid.slice(0,6)}</span>`;
+        const kb=document.createElement('button');kb.className='kick-btn';kb.textContent='Remove';
+        kb.onclick=()=>{db.ref('roomMeta/'+roomId+'/members/'+uid).remove();renderRequestsAndMembers(roomId);renderOnlineUsersList(roomId,'');};
+        row.appendChild(kb);body.appendChild(row);
+      });
+    }
+  });
+}
+
+document.getElementById('modal-close').onclick=()=>{document.getElementById('modal-bg').style.display='none';};
+document.getElementById('modal-bg').onclick=e=>{if(e.target===document.getElementById('modal-bg'))document.getElementById('modal-bg').style.display='none';};
+document.getElementById('announce-btn').onclick=()=>{document.getElementById('announce-text').value='';document.getElementById('announce-modal-bg').style.display='flex';document.getElementById('announce-text').focus();};
+document.getElementById('announce-send').onclick=()=>{const text=document.getElementById('announce-text').value.trim();if(!text)return;db.ref('chats/'+currentRoom).push({announcement:true,text,from:myName,ts:Date.now()});document.getElementById('announce-modal-bg').style.display='none';};
+document.getElementById('announce-cancel').onclick=()=>{document.getElementById('announce-modal-bg').style.display='none';};
+document.getElementById('announce-modal-bg').onclick=e=>{if(e.target===document.getElementById('announce-modal-bg'))document.getElementById('announce-modal-bg').style.display='none';};
+document.getElementById('new-room-input').addEventListener('keydown',e=>{if(e.key==='Enter'){const val=e.target.value.trim();if(!val)return;e.target.value='';document.getElementById('nr-name').value=val;document.getElementById('nr-private').checked=false;document.getElementById('new-room-modal-bg').style.display='flex';document.getElementById('nr-name').focus();}});
+document.getElementById('create-room-btn').onclick=()=>{const name=document.getElementById('nr-name').value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');if(!name||!db)return;const isPrivate=document.getElementById('nr-private').checked;db.ref('roomMeta/'+name).set({private:isPrivate,owner:isPrivate?myId:null,members:{}});document.getElementById('new-room-modal-bg').style.display='none';switchRoom(name);};
+document.getElementById('cancel-room-btn').onclick=()=>{document.getElementById('new-room-modal-bg').style.display='none';};
+document.getElementById('new-room-modal-bg').onclick=e=>{if(e.target===document.getElementById('new-room-modal-bg'))document.getElementById('new-room-modal-bg').style.display='none';};
+
+// ---- MEDIA PANEL ----
+function toggleMedia(tab){
+  const isOpen=mediaPanelOpen&&activeTab===tab;
+  if(isOpen){mediaPanelOpen=false;document.getElementById('media-panel').style.display='none';document.getElementById('gif-toggle-btn').classList.remove('active');document.getElementById('img-toggle-btn').classList.remove('active');}
+  else{mediaPanelOpen=true;document.getElementById('media-panel').style.display='block';switchTab(tab);}
+}
+
+function switchTab(tab){
+  activeTab=tab;
+  document.getElementById('gif-pane').style.display=tab==='gif'?'block':'none';
+  document.getElementById('img-pane').style.display=tab==='img'?'flex':'none';
+  document.getElementById('tab-gif').classList.toggle('active',tab==='gif');
+  document.getElementById('tab-img').classList.toggle('active',tab==='img');
+  document.getElementById('gif-toggle-btn').classList.toggle('active',tab==='gif'&&mediaPanelOpen);
+  document.getElementById('img-toggle-btn').classList.toggle('active',tab==='img'&&mediaPanelOpen);
+}
+
+// ---- IMAGE UPLOAD ----
+const dropZone=document.getElementById('drop-zone');
+const fileInput=document.getElementById('file-input');
+
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');handleFiles(Array.from(e.dataTransfer.files));});
+fileInput.addEventListener('change',()=>handleFiles(Array.from(fileInput.files)));
+
+function handleFiles(files){
+  const imgs=files.filter(f=>f.type.startsWith('image/'));
+  imgs.forEach(f=>{
+    if(f.size>32*1024*1024){document.getElementById('upload-err').textContent='Max file size is 32MB.';return;}
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      pendingFiles.push({file:f,dataUrl:ev.target.result});
+      renderPreviews();
+    };
+    reader.readAsDataURL(f);
+  });
+  fileInput.value='';
+}
+
+function renderPreviews(){
+  const row=document.getElementById('img-preview-row');row.innerHTML='';
+  pendingFiles.forEach((item,i)=>{
+    const wrap=document.createElement('div');wrap.className='preview-thumb';
+    const img=document.createElement('img');img.src=item.dataUrl;
+    const rm=document.createElement('button');rm.className='remove-thumb';rm.textContent='✕';
+    rm.onclick=()=>{pendingFiles.splice(i,1);renderPreviews();};
+    wrap.appendChild(img);wrap.appendChild(rm);row.appendChild(wrap);
+  });
+  document.getElementById('send-images-btn').style.display=pendingFiles.length?'block':'none';
+  document.getElementById('upload-err').textContent='';
+}
+
+document.getElementById('send-images-btn').onclick=uploadAndSendImages;
+
+async function uploadAndSendImages(){
+  if(!pendingFiles.length)return;
+  if(IMGBB_KEY==='YOUR_IMGBB_API_KEY'){
+    document.getElementById('upload-err').textContent='Add your ImgBB API key in the code (see comment at top of script).';
+    return;
+  }
+  const prog=document.getElementById('upload-progress');
+  prog.style.display='block';
+  document.getElementById('send-images-btn').disabled=true;
+  const toSend=[...pendingFiles];
+  for(let i=0;i<toSend.length;i++){
+    prog.textContent=`Uploading ${i+1} of ${toSend.length}...`;
+    try{
+      const formData=new FormData();
+      formData.append('image',toSend[i].dataUrl.split(',')[1]);
+      const res=await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`,{method:'POST',body:formData});
+      const data=await res.json();
+      if(data.success){
+        const url=data.data.url;
+        db.ref('chats/'+currentRoom).push({senderId:myId,name:myName,avatar:myAvatar,image:url,admin:isAdmin,ts:Date.now()});
+      } else {
+        document.getElementById('upload-err').textContent='Upload failed. Check your ImgBB key.';
+      }
+    }catch(e){document.getElementById('upload-err').textContent='Upload error: '+e.message;}
+  }
+  pendingFiles=[];renderPreviews();
+  prog.style.display='none';prog.textContent='';
+  document.getElementById('send-images-btn').disabled=false;
+  toggleMedia('img'); // close panel after sending
+}
+
+// ---- MESSAGING ----
+document.getElementById('snd').onclick=sendMsg;
+document.getElementById('msg-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendMsg();});
+
+function sendMsg(){
+  if(!joined||!amMember(currentRoom))return;
+  const inp=document.getElementById('msg-input');const text=inp.value.trim();if(!text)return;
+  inp.value='';
+  db.ref('chats/'+currentRoom).push({senderId:myId,name:myName,avatar:myAvatar,text,admin:isAdmin,ts:Date.now()});
+}
+
+function sendGif(url){
+  if(!joined||!amMember(currentRoom))return;
+  db.ref('chats/'+currentRoom).push({senderId:myId,name:myName,avatar:myAvatar,gif:url,admin:isAdmin,ts:Date.now()});
+  toggleMedia('gif');
+}
+
+function renderMsg(msg,msgKey){
+  const c=document.getElementById('msgs');
+  const atBottom=c.scrollHeight-c.scrollTop-c.clientHeight<80;
+  if(msg.announcement){
+    const d=document.createElement('div');d.className='announcement';d.textContent='📣 '+msg.text;
+    if(isAdmin){const del=document.createElement('button');del.style.cssText='margin-left:10px;background:none;border:none;color:#FFD700;cursor:pointer;font-size:13px;opacity:0.7;';del.textContent='✕';del.onclick=()=>db.ref('chats/'+currentRoom+'/'+msgKey).remove();d.appendChild(del);}
+    c.appendChild(d);
+  } else if(msg.system){
+    const d=document.createElement('div');d.className='sys';d.textContent=msg.text;c.appendChild(d);
+  } else {
+    const isMine=msg.senderId===myId;
+    const wrap=document.createElement('div');wrap.className='msg '+(isMine?'mine':'other');
+    const av=document.createElement('div');av.className='av';av.textContent=msg.avatar||'🐻';
+    const mw=document.createElement('div');mw.className='mw';
+    const meta=document.createElement('div');meta.className='meta';
+    const nameSpan=document.createElement('span');nameSpan.textContent=(isMine?'you':msg.name)+(msg.admin?' 👑':'');meta.appendChild(nameSpan);
+    if(isAdmin||isMine){const del=document.createElement('button');del.className='del-msg-btn';del.textContent='✕ delete';del.onclick=()=>db.ref('chats/'+currentRoom+'/'+msgKey).remove();meta.appendChild(del);}
+    const bubble=document.createElement('div');bubble.className='bubble';
+    if(msg.admin&&!isMine)bubble.style.border='1.5px solid #FFD700';
+    if(msg.gif||msg.image){
+      const img=document.createElement('img');
+      img.src=msg.gif||msg.image;
+      img.alt=msg.gif?'gif':'image';
+      img.style.cssText='max-width:200px;max-height:160px;border-radius:10px;display:block;cursor:pointer;';
+      img.onclick=()=>{document.getElementById('lightbox-img').src=img.src;document.getElementById('lightbox').style.display='flex';};
+      bubble.style.padding='6px';bubble.appendChild(img);
+    } else {bubble.textContent=msg.text;}
+    mw.appendChild(meta);mw.appendChild(bubble);wrap.appendChild(av);wrap.appendChild(mw);c.appendChild(wrap);
+  }
+  if(atBottom)c.scrollTop=c.scrollHeight;
+}
+
+// ---- GIFS ----
+function buildGifPanel(){
+  const cats=document.getElementById('gif-cats');cats.innerHTML='';
+  Object.keys(REAL_GIFS).forEach(cat=>{
+    const btn=document.createElement('button');btn.className='cat-btn'+(cat===activeCategory?' active':'');btn.textContent=cat;
+    btn.onclick=()=>{activeCategory=cat;document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadGifGrid(cat);};
+    cats.appendChild(btn);
+  });
+  loadGifGrid(activeCategory);
+}
+
+function loadGifGrid(cat){
+  const grid=document.getElementById('gif-grid');grid.innerHTML='';
+  (REAL_GIFS[cat]||[]).forEach(url=>{
+    const img=document.createElement('img');img.className='gif-item';img.src=url;img.alt=cat;
+    img.onclick=()=>sendGif(url);grid.appendChild(img);
+  });
+}
+</script>
+</body>
+</html>
